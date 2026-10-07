@@ -1,7 +1,5 @@
 # Green-Agent
 
-![CI](https://github.com/DonnaLi/green-agent/actions/workflows/ci.yml/badge.svg)
-
 Green-Agent helps shippers pick a freight carrier on cost **and** carbon. Carrier agents bid price, ETA, and CO2e on each shipment, a scoring engine ranks them with shipper-set weights, and an LLM explains the pick before the shipper approves it.
 
 ## How it works
@@ -46,7 +44,3 @@ pytest                        # runs the scoring tests
 - [ ] LLM rationale
 - [ ] Dashboard
 - [ ] Real emissions data
-
-## License
-
-MIT
