@@ -18,3 +18,7 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Local database and builds
+green_agent.db
+web/dist/
