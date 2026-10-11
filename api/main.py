@@ -17,7 +17,9 @@ from api.schemas import ShipmentIn, ShipmentOut, StatsOut, WeightsIn, WeightsOut
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    await service.start_transport()
     yield
+    await service.stop_transport()
 
 
 app = FastAPI(title="Green-Agent API", version="0.1.0", lifespan=lifespan)

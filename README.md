@@ -49,6 +49,11 @@ npm install
 npm run dev                       # open http://localhost:5173
 ```
 
+**Carrier agents** (optional): by default the API calls the mock carriers
+in-process. To run them as Fetch.ai uAgents instead, start
+`python -m agents.carrier_agents` and launch the API with
+`CARRIER_TRANSPORT=uagents`. See [agents/README.md](agents/README.md).
+
 **Tests:** `pytest`
 
 ## API
@@ -67,11 +72,12 @@ npm run dev                       # open http://localhost:5173
 - [x] Scoring engine with tests
 - [x] Data model (SQLite or PostgreSQL)
 - [x] Mock carrier agents with timeouts and bad-data handling
+- [x] Fetch.ai uAgents for carrier messaging (local routing)
 - [x] Request loop and REST API
 - [x] Rationale (LLM with template fallback)
 - [x] Dashboard
 - [ ] Real emissions data (Climatiq or GLEC)
-- [ ] Fetch.ai uAgents for carrier messaging
+- [ ] Agentverse registration for the agents
 
 ## License
 

@@ -256,7 +256,7 @@ export default function App() {
           <section className="result empty">
             <h2>Send a shipment to compare carriers</h2>
             <p>
-              Three carriers will bid on price, delivery date, and emissions. You'll see their bids ranked by your
+              Five carriers will bid on price, delivery date, and emissions. You'll see their bids ranked by your
               cost and carbon weighting, with the reasoning behind the top pick.
             </p>
           </section>

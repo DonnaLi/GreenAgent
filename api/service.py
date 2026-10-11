@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import os
 import random
 from datetime import UTC, datetime, time
 
@@ -18,6 +20,31 @@ from scoring.engine import co2e_saved_vs_cheapest
 
 BID_TIMEOUT_S = 2.0
 DEFAULT_W_CARBON = 0.5
+
+log = logging.getLogger(__name__)
+_buyer = None
+
+
+def transport() -> str:
+    """Either "local" (call carriers in-process) or "uagents" (message the carrier agents)."""
+    return os.getenv("CARRIER_TRANSPORT", "local").strip().lower()
+
+
+async def start_transport() -> None:
+    """Start the buyer agent when carriers are reached over uAgents."""
+    global _buyer
+    if transport() == "uagents" and _buyer is None:
+        from agents.buyer import BuyerAgent  # only needed for the uagents transport
+
+        _buyer = BuyerAgent()
+        await _buyer.start()
+
+
+async def stop_transport() -> None:
+    global _buyer
+    if _buyer is not None:
+        await _buyer.stop()
+        _buyer = None
 
 
 def utcnow() -> datetime:
@@ -43,6 +70,11 @@ async def collect_bids(
     req: ShipmentRequest, now: datetime, rng: random.Random, timeout_s: float = BID_TIMEOUT_S
 ) -> list[tuple[str, str, str, RawBid | None]]:
     """Ask every carrier at once; a carrier that misses the timeout returns None."""
+    if transport() == "uagents":
+        if _buyer is None:
+            raise RuntimeError("Buyer agent is not running; call start_transport() first")
+        bids = await _buyer.broadcast(req, timeout_s)
+        return [(c.carrier_id, c.name, c.mode, bids.get(c.carrier_id)) for c in CARRIERS]
 
     async def one(carrier):
         try:
@@ -88,6 +120,8 @@ async def create_shipment(
                 row.excluded_reason = "Delivery misses the deadline"
             else:
                 valid.append(ScoringBid(carrier_id, raw.price, raw.eta, raw.co2e_kg))
+        if row.excluded_reason:
+            log.warning("Excluded %s: %s", carrier_id, row.excluded_reason)
         rows[carrier_id] = row
 
     ranked = rank_bids(valid, w_carbon=w_carbon, deadline=deadline)

@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from agents.carriers import CARRIERS
 from api import db as db_mod
 from api import main, service
 from api.schemas import ShipmentIn
@@ -69,7 +70,7 @@ def test_request_returns_ranked_bids_and_rationale(client):
     assert [b["rank"] for b in ranked] == list(range(1, len(ranked) + 1))
     assert body["recommended_carrier"] == ranked[0]["carrier_id"]
     assert body["rationale"] and body["rationale_source"] == "template"
-    assert len(body["bids"]) == 3  # excluded bids are kept for the audit trail
+    assert len(body["bids"]) == len(CARRIERS) == 5  # excluded bids are kept for the audit trail
 
 
 def test_approve_then_stats(client):

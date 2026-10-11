@@ -1,8 +1,9 @@
 """Mock carrier agents.
 
-Each carrier answers a shipment request with a bid. They are plain async
-functions for now so the request loop can be built and tested; swap them for
-Fetch.ai uAgents later without changing the scoring or API layers.
+Each carrier answers a shipment request with a bid. The bid logic lives here
+so both transports share it: `request_bid` calls it in-process (the default,
+used by tests and CI), and `agents/carrier_agents.py` wraps it in Fetch.ai
+uAgents that answer over agent messaging.
 
 Two carriers misbehave on purpose so the timeout and validation logic is
 always exercised:
@@ -63,7 +64,35 @@ CARRIERS = [
     CarrierProfile("bluewave", "BlueWave Intermodal", "Truck + rail", 0.13, 0.062, 600,
                    slow_chance=0.2),
     CarrierProfile("northrail", "NorthRail Freight", "Rail", 0.15, 0.028, 450),
+    CarrierProfile("voltline", "VoltLine Electric", "Electric truck", 0.14, 0.040, 700),
+    CarrierProfile("harbourlink", "HarbourLink Shortsea", "Short-sea + truck", 0.12, 0.070, 350),
 ]
+
+
+def response_delay(carrier: CarrierProfile, rng: random.Random, slow_delay_s: float = 5.0) -> float:
+    """How long the carrier takes to answer, in seconds."""
+    if rng.random() < carrier.slow_chance:
+        return slow_delay_s
+    return rng.uniform(0.05, 0.4)
+
+
+def make_bid(
+    carrier: CarrierProfile, req: ShipmentRequest, now: datetime, rng: random.Random
+) -> RawBid:
+    distance = _distance_km(req.origin, req.destination)
+    tonne_km = (req.weight_kg / 1000) * distance
+    days = max(1, round(distance / carrier.km_per_day))
+    co2e = None if rng.random() < carrier.missing_co2e_chance else round(
+        tonne_km * carrier.co2e_per_tkm * rng.uniform(0.95, 1.05), 1
+    )
+    return RawBid(
+        carrier_id=carrier.carrier_id,
+        carrier_name=carrier.name,
+        mode=carrier.mode,
+        price=round(max(150.0, tonne_km * carrier.price_per_tkm * rng.uniform(0.9, 1.1)), 2),
+        eta=now + timedelta(days=days),
+        co2e_kg=co2e,
+    )
 
 
 async def request_bid(
@@ -73,23 +102,5 @@ async def request_bid(
     rng: random.Random,
     slow_delay_s: float = 5.0,
 ) -> RawBid:
-    tonne_km = (req.weight_kg / 1000) * _distance_km(req.origin, req.destination)
-    jitter = rng.uniform(0.9, 1.1)
-
-    if rng.random() < carrier.slow_chance:
-        await asyncio.sleep(slow_delay_s)
-    else:
-        await asyncio.sleep(rng.uniform(0.05, 0.4))
-
-    days = max(1, round(_distance_km(req.origin, req.destination) / carrier.km_per_day))
-    co2e = None if rng.random() < carrier.missing_co2e_chance else round(
-        tonne_km * carrier.co2e_per_tkm * rng.uniform(0.95, 1.05), 1
-    )
-    return RawBid(
-        carrier_id=carrier.carrier_id,
-        carrier_name=carrier.name,
-        mode=carrier.mode,
-        price=round(max(150.0, tonne_km * carrier.price_per_tkm * jitter), 2),
-        eta=now + timedelta(days=days),
-        co2e_kg=co2e,
-    )
+    await asyncio.sleep(response_delay(carrier, rng, slow_delay_s))
+    return make_bid(carrier, req, now, rng)
